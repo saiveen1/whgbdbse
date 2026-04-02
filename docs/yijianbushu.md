@@ -16,6 +16,8 @@
 
 ![5a0cc80913848aca4b5f4058538ad6aa|690x333](../pic/v4/depl5.png)
 
+    `如果 MAIL_DOMAIN 太长报错，可不要直接填完整域名大列表，改为配置 MAIL_DOMAIN_PREFIXES 和 MAIL_DOMAIN_BASES 两个变量进行组合生成`
+
 
 #### 5. 添加完成后点击部署即可
 

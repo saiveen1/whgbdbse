@@ -56,6 +56,14 @@ wrangler secret put RESEND_API_KEY
 - 进入 Cloudflare Dashboard → Workers → 选中你的 Worker → Settings → Variables。
 - 在 Secrets 添加 `RESEND_API_KEY`。
 - 在 Variables 添加 `MAIL_DOMAIN`，值为你用于收取/发件的域名列表（需与 Resend 已验证域名一致）。
+- 如果 `MAIL_DOMAIN` 太大超出 Cloudflare 单变量限制，可改用：
+
+```bash
+MAIL_DOMAIN_PREFIXES="amazon,api,apple"
+MAIL_DOMAIN_BASES="aibus.us.ci,hotel.us.ci,mimonaco.com"
+```
+
+Worker 会自动组合为完整域名列表，适合 Git 集成部署时管理大量域名。
 
 ## 4. 关联项目并部署
 

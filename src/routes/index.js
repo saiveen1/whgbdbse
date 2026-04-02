@@ -7,6 +7,7 @@ import { Router, createJwt, buildSessionCookie, verifyMailboxLogin, authMiddlewa
 import { handleApiRequest } from '../api/index.js';
 import { getDatabaseWithValidation } from '../db/index.js';
 import { verifyPassword } from '../utils/common.js';
+import { getMailDomains } from '../utils/mail-domains.js';
 import { handleEmailReceive } from '../email/receiver.js';
 
 /**
@@ -228,10 +229,7 @@ async function delegateApiRequest(context) {
     return new Response('数据库连接失败', { status: 500 });
   }
 
-  const MAIL_DOMAINS = (env.MAIL_DOMAIN || 'temp.example.com')
-    .split(/[,\s]+/)
-    .map(d => d.trim())
-    .filter(Boolean);
+  const MAIL_DOMAINS = getMailDomains(env);
 
   const RESEND_API_KEY = env.RESEND_API_KEY || env.RESEND_TOKEN || env.RESEND || '';
   const ADMIN_NAME = String(env.ADMIN_NAME || 'admin').trim().toLowerCase();

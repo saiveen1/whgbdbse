@@ -75,12 +75,37 @@
 |--------|------|------|
 | TEMP_MAIL_DB | D1 数据库绑定 | 是 |
 | MAIL_EML | R2 存储桶绑定 | 是 |
-| MAIL_DOMAIN | 邮箱域名，多个用逗号分隔 | 是 |
+| MAIL_DOMAIN | 邮箱域名，多个用逗号分隔；小规模配置推荐直接使用 | 是 |
+| MAIL_DOMAIN_PREFIXES | 大规模域名配置时的前缀列表，与 `MAIL_DOMAIN_BASES` 组合生成完整域名 | 否 |
+| MAIL_DOMAIN_BASES | 大规模域名配置时的基础域名列表，与 `MAIL_DOMAIN_PREFIXES` 组合生成完整域名 | 否 |
 | ADMIN_PASSWORD | 严格管理员密码 | 是 |
 | ADMIN_NAME | 严格管理员用户名（默认 `admin`） | 否 |
 | JWT_TOKEN | JWT 签名密钥 | 是 |
 | RESEND_API_KEY | Resend 发件密钥，支持多域名配置 | 否 |
 | FORWARD_RULES | 邮件转发规则 | 否 |
+
+<details>
+<summary><strong>MAIL_DOMAIN 大列表配置</strong></summary>
+
+当域名很多时，Cloudflare Workers 的单个文本变量可能超出限制。此时可不再直接填写 `MAIL_DOMAIN`，改为使用前缀与基础域名组合：
+
+```bash
+MAIL_DOMAIN_PREFIXES="amazon,api,apple"
+MAIL_DOMAIN_BASES="aibus.us.ci,hotel.us.ci,mimonaco.com"
+```
+
+系统会自动生成：
+
+```text
+amazon.aibus.us.ci
+amazon.hotel.us.ci
+amazon.mimonaco.com
+api.aibus.us.ci
+...
+```
+
+生成顺序为“前缀在外层、基础域名在内层”，与手工展开列表一致。
+</details>
 
 <details>
 <summary><strong>RESEND_API_KEY 配置格式</strong></summary>
