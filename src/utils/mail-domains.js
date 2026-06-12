@@ -24,7 +24,10 @@ export function getMailDomains(env = {}) {
 
   if (prefixes.length > 0 && bases.length > 0) {
     return [...new Set(
-      prefixes.flatMap(prefix => bases.map(base => `${prefix}.${base}`))
+      [
+        ...prefixes.flatMap(prefix => bases.map(base => `${prefix}.${base}`)),
+        ...bases
+      ]
     )];
   }
 

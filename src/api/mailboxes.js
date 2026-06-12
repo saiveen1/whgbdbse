@@ -15,6 +15,29 @@ import {
 } from '../db/index.js';
 import { handleMailboxAdminApi } from './mailboxAdmin.js';
 
+function normalizeDomain(value) {
+  return String(value || '').trim().replace(/^@+/, '').toLowerCase();
+}
+
+function getDomainList(mailDomains, fallback = 'temp.example.com') {
+  const domains = Array.isArray(mailDomains) ? mailDomains : [(mailDomains || fallback)];
+  return domains.map(normalizeDomain).filter(Boolean);
+}
+
+function chooseDomain(domains, explicitDomain, domainIndex) {
+  const normalizedDomains = getDomainList(domains);
+  const requestedDomain = normalizeDomain(explicitDomain);
+  if (requestedDomain) {
+    if (!normalizedDomains.includes(requestedDomain)) {
+      throw new Error(`域名不允许: ${requestedDomain}`);
+    }
+    return requestedDomain;
+  }
+
+  const domainIdx = Math.max(0, Math.min(normalizedDomains.length - 1, Number(domainIndex || 0)));
+  return normalizedDomains[domainIdx] || normalizedDomains[0] || 'temp.example.com';
+}
+
 /**
  * 处理邮箱管理相关 API
  * @param {Request} request - HTTP 请求
@@ -31,7 +54,7 @@ export async function handleMailboxesApi(request, db, mailDomains, url, path, op
   // 返回域名列表给前端
   if (path === '/api/domains' && request.method === 'GET') {
     if (isMock) return Response.json(MOCK_DOMAINS);
-    const domains = Array.isArray(mailDomains) ? mailDomains : [(mailDomains || 'temp.example.com')];
+    const domains = getDomainList(mailDomains);
     return Response.json(domains);
   }
 
@@ -39,9 +62,13 @@ export async function handleMailboxesApi(request, db, mailDomains, url, path, op
   if (path === '/api/generate') {
     const lengthParam = Number(url.searchParams.get('length') || 0);
     const randomId = generateRandomId(lengthParam || undefined);
-    const domains = isMock ? MOCK_DOMAINS : (Array.isArray(mailDomains) ? mailDomains : [(mailDomains || 'temp.example.com')]);
-    const domainIdx = Math.max(0, Math.min(domains.length - 1, Number(url.searchParams.get('domainIndex') || 0)));
-    const chosenDomain = domains[domainIdx] || domains[0];
+    const domains = isMock ? MOCK_DOMAINS : getDomainList(mailDomains);
+    let chosenDomain;
+    try {
+      chosenDomain = chooseDomain(domains, url.searchParams.get('domain'), url.searchParams.get('domainIndex'));
+    } catch (e) {
+      return errorResponse(String(e?.message || '域名不允许'), 400);
+    }
     const email = `${randomId}@${chosenDomain}`;
     
     if (!isMock) {
@@ -69,11 +96,10 @@ export async function handleMailboxesApi(request, db, mailDomains, url, path, op
         const valid = /^[a-z0-9._-]{1,64}$/i.test(local);
         if (!valid) return errorResponse('非法用户名', 400);
         const domains = MOCK_DOMAINS;
-        const domainIdx = Math.max(0, Math.min(domains.length - 1, Number(body.domainIndex || 0)));
-        const chosenDomain = domains[domainIdx] || domains[0];
+        const chosenDomain = chooseDomain(domains, body.domain, body.domainIndex);
         const email = `${local}@${chosenDomain}`;
         return Response.json({ email, expires: Date.now() + 3600000 });
-      } catch (_) { return errorResponse('Bad Request', 400); }
+      } catch (e) { return errorResponse(String(e?.message || 'Bad Request'), 400); }
     }
     
     try {
@@ -81,9 +107,8 @@ export async function handleMailboxesApi(request, db, mailDomains, url, path, op
       const local = String(body.local || '').trim().toLowerCase();
       const valid = /^[a-z0-9._-]{1,64}$/i.test(local);
       if (!valid) return errorResponse('非法用户名', 400);
-      const domains = Array.isArray(mailDomains) ? mailDomains : [(mailDomains || 'temp.example.com')];
-      const domainIdx = Math.max(0, Math.min(domains.length - 1, Number(body.domainIndex || 0)));
-      const chosenDomain = domains[domainIdx] || domains[0];
+      const domains = getDomainList(mailDomains);
+      const chosenDomain = chooseDomain(domains, body.domain, body.domainIndex);
       const email = `${local}@${chosenDomain}`;
       
       try {
@@ -98,7 +123,7 @@ export async function handleMailboxesApi(request, db, mailDomains, url, path, op
       } catch (e) {
         return errorResponse(String(e?.message || '创建失败'), 400);
       }
-    } catch (_) { return errorResponse('Bad Request', 400); }
+    } catch (e) { return errorResponse(String(e?.message || 'Bad Request'), 400); }
   }
 
   // 获取邮箱详细信息（转发、收藏等）

@@ -15,7 +15,7 @@ test('getMailDomains prefers MAIL_DOMAIN when provided', () => {
   ]);
 });
 
-test('getMailDomains expands prefixes and bases when MAIL_DOMAIN is absent', () => {
+test('getMailDomains expands prefixes and bases and allows root bases when MAIL_DOMAIN is absent', () => {
   const domains = getMailDomains({
     MAIL_DOMAIN_PREFIXES: 'amazon, api',
     MAIL_DOMAIN_BASES: 'aibus.us.ci, hotel.us.ci'
@@ -25,7 +25,9 @@ test('getMailDomains expands prefixes and bases when MAIL_DOMAIN is absent', () 
     'amazon.aibus.us.ci',
     'amazon.hotel.us.ci',
     'api.aibus.us.ci',
-    'api.hotel.us.ci'
+    'api.hotel.us.ci',
+    'aibus.us.ci',
+    'hotel.us.ci'
   ]);
 });
 
