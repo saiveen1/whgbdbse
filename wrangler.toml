@@ -20,8 +20,8 @@ JWT_TOKEN="fjiwaiv23164s4fdsfs6df6wfdx"
 JWT_TOKENGUEST_PASSWORD="dfsfsfxzcv"
 SESSION_EXPIRE_DAYS="365"
 MAIL_DOMAIN=""
-MAIL_DOMAIN_PREFIXES="amazon,api,apple,assets,aws,azure,baidu,bilibili,boss,cloudflare,firefox,google,happy,icloud,intel,kameto,media,microsoft,mofesi,novali,office,person,sad,senari,static,taobao,update"
-MAIL_DOMAIN_BASES="aibus.us.ci,hotel.us.ci,ibiz.us.ci,mimonaco.com,pows.us.ci,ptcl.us.ci,saiveen.cc,slkesf.us.ci,techla.ccwu.cc,techla.us.ci,techsg.us.ci,techuk.us.ci,usct.us.ci,usla.us.ci"
+MAIL_DOMAIN_PREFIXES="novali,edu"
+MAIL_DOMAIN_BASES="usla.ccwu.cc,usla.us.ci,cala.lol,imatech.lol"
 RESEND_API_KEY="j6PMqxczZeqWaK2kAFvF"
 
 
