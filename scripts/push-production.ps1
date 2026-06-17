@@ -2,6 +2,8 @@
 param(
     [string]$Remote = 'origin',
     [string]$Branch,
+    [string]$GitCommand = 'git',
+    [string]$NodeCommand = 'node',
     [switch]$Apply,
     [switch]$PlanOnly,
     [switch]$SkipChecks,
@@ -19,8 +21,46 @@ $focusedChecks = @(
     'test/mailboxes-domain-selection.test.mjs'
 )
 
+function Invoke-NativeCommand {
+    param(
+        [string]$FilePath,
+        [string[]]$CommandArgs
+    )
+
+    $oldErrorActionPreference = $ErrorActionPreference
+    $nativePreference = Get-Variable -Name 'PSNativeCommandUseErrorActionPreference' -ErrorAction SilentlyContinue
+    $oldNativePreference = $null
+    if ($nativePreference) {
+        $oldNativePreference = $PSNativeCommandUseErrorActionPreference
+    }
+
+    try {
+        $ErrorActionPreference = 'Continue'
+        if ($nativePreference) {
+            $PSNativeCommandUseErrorActionPreference = $false
+        }
+        $output = & $FilePath @CommandArgs 2>&1
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $oldErrorActionPreference
+        if ($nativePreference) {
+            $PSNativeCommandUseErrorActionPreference = $oldNativePreference
+        }
+    }
+
+    return [pscustomobject]@{
+        exitCode = $exitCode
+        output = @($output | ForEach-Object { $_.ToString() })
+    }
+}
+
 function Get-CurrentBranch {
-    $name = (& git branch --show-current).Trim()
+    $result = Invoke-NativeCommand -FilePath $GitCommand -CommandArgs @('branch', '--show-current')
+    if ($result.exitCode -ne 0) {
+        throw "git branch --show-current failed: $($result.output -join "`n")"
+    }
+
+    $name = ($result.output -join "`n").Trim()
     if ([string]::IsNullOrWhiteSpace($name)) {
         throw 'Cannot determine current git branch.'
     }
@@ -76,12 +116,12 @@ function New-Plan {
 }
 
 function Invoke-FocusedChecks {
-    $output = & node --test @focusedChecks 2>&1
-    $exitCode = $LASTEXITCODE
+    $commandArgs = @('--test') + $focusedChecks
+    $result = Invoke-NativeCommand -FilePath $NodeCommand -CommandArgs $commandArgs
     return [pscustomobject]@{
         command = @('node', '--test') + $focusedChecks
-        exitCode = $exitCode
-        output = @($output | ForEach-Object { $_.ToString() })
+        exitCode = $result.exitCode
+        output = $result.output
     }
 }
 
@@ -94,7 +134,12 @@ function Assert-CleanWorktree {
         }
     }
 
-    $status = @(& git status --porcelain)
+    $result = Invoke-NativeCommand -FilePath $GitCommand -CommandArgs @('status', '--porcelain')
+    if ($result.exitCode -ne 0) {
+        throw "git status --porcelain failed: $($result.output -join "`n")"
+    }
+
+    $status = @($result.output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     if ($status.Count -gt 0) {
         throw "Refusing to push with uncommitted changes. Commit first or pass -AllowDirty. Changed entries: $($status.Count)"
     }
@@ -113,12 +158,11 @@ function Invoke-GitPush {
     )
 
     $pushArgs = Get-PushArgs -TargetRemote $TargetRemote -TargetBranch $TargetBranch -DoApply $DoApply
-    $output = & git @pushArgs 2>&1
-    $exitCode = $LASTEXITCODE
+    $result = Invoke-NativeCommand -FilePath $GitCommand -CommandArgs $pushArgs
     return [pscustomobject]@{
         command = @(ConvertTo-DisplayCommand -CommandArgs $pushArgs)
-        exitCode = $exitCode
-        output = @($output | ForEach-Object { $_.ToString() })
+        exitCode = $result.exitCode
+        output = $result.output
     }
 }
 

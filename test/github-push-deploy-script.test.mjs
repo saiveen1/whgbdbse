@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 const scriptPath = resolve('scripts/push-production.ps1');
 
@@ -53,4 +54,40 @@ test('production push script documents GitHub-triggered deploy path without Clou
     'test/mail-domains.test.mjs',
     'test/mailboxes-domain-selection.test.mjs',
   ]);
+});
+
+test('production push script treats git stderr progress as output, not failure', () => {
+  assert.equal(existsSync(scriptPath), true);
+
+  const tempDir = mkdtempSync(join(tmpdir(), 'whgbdbse-fake-git-'));
+  const fakeGit = join(tempDir, 'fake-git.ps1');
+  writeFileSync(fakeGit, [
+    'param([Parameter(ValueFromRemainingArguments=$true)][string[]]$GitArgs)',
+    'Write-Error "To https://example.invalid/owner/repo.git"',
+    'Write-Error " * [new branch]      HEAD -> mypro"',
+    'exit 0',
+    '',
+  ].join('\n'));
+
+  const shell = process.platform === 'win32' ? 'powershell.exe' : 'pwsh';
+  const result = spawnSync(shell, [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    scriptPath,
+    '-SkipChecks',
+    '-AllowDirty',
+    '-GitCommand',
+    fakeGit,
+    '-Remote',
+    'origin',
+    '-Branch',
+    'mypro',
+  ], { encoding: 'utf8' });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const body = JSON.parse(result.stdout);
+  assert.equal(body.push.exitCode, 0);
+  assert.match(body.push.output.join('\n'), /HEAD -> mypro/);
 });
