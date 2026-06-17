@@ -14,6 +14,7 @@ $ErrorActionPreference = 'Stop'
 
 $focusedChecks = @(
     'test/cloudflare-email-routing-script.test.mjs',
+    'test/cloudflare-email-routing-removal-script.test.mjs',
     'test/github-push-deploy-script.test.mjs',
     'test/wrangler-domain-vars.test.mjs',
     'test/domain-picker.test.mjs',
