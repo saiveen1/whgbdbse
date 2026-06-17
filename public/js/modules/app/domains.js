@@ -31,6 +31,97 @@ export function setDomains(list) {
   domains = Array.isArray(list) ? list : [];
 }
 
+export function normalizeDomainChoice(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^@+/, '')
+    .replace(/\.+$/, '')
+    .toLowerCase();
+}
+
+export function isValidDomainChoice(value) {
+  const domain = normalizeDomainChoice(value);
+  if (!domain || domain.length > 253 || !domain.includes('.')) return false;
+  return domain
+    .split('.')
+    .every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
+}
+
+function unique(items) {
+  return [...new Set(items.filter(item => item !== null && typeof item !== 'undefined'))];
+}
+
+export function buildDomainPickerModel(domainList) {
+  const list = unique((Array.isArray(domainList) ? domainList : [])
+    .map(normalizeDomainChoice)
+    .filter(isValidDomainChoice));
+
+  const bases = list.filter(domain => !list.some(other => other !== domain && domain.endsWith(`.${other}`)));
+  const finalBases = bases.length ? bases : list;
+  const prefixesByBase = {};
+
+  finalBases.forEach(base => {
+    const prefixes = [''];
+    list.forEach(domain => {
+      if (domain === base) return;
+      if (!domain.endsWith(`.${base}`)) return;
+      prefixes.push(domain.slice(0, -(base.length + 1)));
+    });
+    prefixesByBase[base] = unique(prefixes);
+  });
+
+  return { domains: list, bases: finalBases, prefixesByBase };
+}
+
+export function resolveDomainChoice({ base = '', prefix = '', custom = '' } = {}) {
+  const customDomain = normalizeDomainChoice(custom);
+  if (customDomain) {
+    return isValidDomainChoice(customDomain) ? customDomain : '';
+  }
+
+  const normalizedBase = normalizeDomainChoice(base);
+  const normalizedPrefix = String(prefix || '').trim().replace(/^\.|\.$/g, '').toLowerCase();
+  if (!normalizedBase) return '';
+  return normalizedPrefix ? `${normalizedPrefix}.${normalizedBase}` : normalizedBase;
+}
+
+function setOptions(selectElement, values, labelForValue = value => value) {
+  if (!selectElement) return;
+  selectElement.innerHTML = values
+    .map(value => `<option value="${value}">${labelForValue(value)}</option>`)
+    .join('');
+}
+
+function findPartsForDomain(domain, model) {
+  const normalized = normalizeDomainChoice(domain);
+  for (const base of model.bases) {
+    if (normalized === base) return { base, prefix: '' };
+    if (normalized.endsWith(`.${base}`)) {
+      return { base, prefix: normalized.slice(0, -(base.length + 1)) };
+    }
+  }
+  return null;
+}
+
+function getPickerElements() {
+  return {
+    baseSelect: document.getElementById('domain-base-select'),
+    prefixSelect: document.getElementById('domain-prefix-select'),
+    customInput: document.getElementById('domain-custom-input'),
+  };
+}
+
+function saveSelectedDomain(selectElement) {
+  const domain = getSelectedDomain(selectElement);
+  if (domain) localStorage.setItem(STORAGE_KEYS.domain, domain);
+}
+
+function updatePrefixOptions(prefixSelect, model, base, selectedPrefix = '') {
+  const prefixes = model.prefixesByBase[base] || [''];
+  setOptions(prefixSelect, prefixes, prefix => prefix ? prefix : '根域');
+  prefixSelect.value = prefixes.includes(selectedPrefix) ? selectedPrefix : '';
+}
+
 /**
  * 填充域名下拉框
  * @param {Array} domainList - 域名列表
@@ -40,16 +131,38 @@ export function populateDomains(domainList, selectElement) {
   if (!selectElement) return;
   const list = Array.isArray(domainList) ? domainList : [];
   selectElement.innerHTML = list.map((d, i) => `<option value="${i}">${d}</option>`).join('');
-  
+
+  const model = buildDomainPickerModel(list);
+  const { baseSelect, prefixSelect, customInput } = getPickerElements();
   const stored = localStorage.getItem(STORAGE_KEYS.domain) || '';
-  const idx = stored ? list.indexOf(stored) : -1;
+  const idx = stored ? model.domains.indexOf(normalizeDomainChoice(stored)) : -1;
   selectElement.selectedIndex = idx >= 0 ? idx : 0;
-  
-  selectElement.addEventListener('change', () => {
-    const opt = selectElement.options[selectElement.selectedIndex];
-    if (opt) localStorage.setItem(STORAGE_KEYS.domain, opt.textContent || '');
-  }, { once: true });
-  
+
+  if (baseSelect && prefixSelect && model.bases.length) {
+    const storedParts = findPartsForDomain(stored, model);
+    const selectedBase = storedParts?.base || model.bases[0];
+    const selectedPrefix = storedParts?.prefix || '';
+
+    setOptions(baseSelect, model.bases);
+    baseSelect.value = selectedBase;
+    updatePrefixOptions(prefixSelect, model, selectedBase, selectedPrefix);
+    if (customInput && stored && !storedParts) customInput.value = normalizeDomainChoice(stored);
+
+    baseSelect.onchange = () => {
+      updatePrefixOptions(prefixSelect, model, baseSelect.value, '');
+      if (customInput) customInput.value = '';
+      saveSelectedDomain(selectElement);
+    };
+    prefixSelect.onchange = () => {
+      if (customInput) customInput.value = '';
+      saveSelectedDomain(selectElement);
+    };
+    if (customInput) {
+      customInput.oninput = () => saveSelectedDomain(selectElement);
+    }
+  }
+
+  selectElement.onchange = () => saveSelectedDomain(selectElement);
   setDomains(list);
 }
 
@@ -135,7 +248,26 @@ export function saveLength(length) {
  * @returns {number}
  */
 export function getSelectedDomainIndex(selectElement) {
+  const selectedDomain = getSelectedDomain(selectElement);
+  if (selectedDomain && selectElement?.options) {
+    const options = Array.from(selectElement.options);
+    const idx = options.findIndex(option => normalizeDomainChoice(option.textContent) === selectedDomain);
+    if (idx >= 0) return idx;
+  }
   return Number(selectElement?.value || 0);
+}
+
+export function getSelectedDomain(selectElement) {
+  const { baseSelect, prefixSelect, customInput } = getPickerElements();
+  const pickedDomain = resolveDomainChoice({
+    base: baseSelect?.value || '',
+    prefix: prefixSelect?.value || '',
+    custom: customInput?.value || '',
+  });
+  if (pickedDomain) return pickedDomain;
+
+  const opt = selectElement?.options?.[selectElement.selectedIndex];
+  return normalizeDomainChoice(opt?.textContent || domains[Number(selectElement?.value || 0)] || '');
 }
 
 /**
@@ -158,6 +290,7 @@ export default {
   loadDomains,
   getStoredLength,
   saveLength,
+  getSelectedDomain,
   getSelectedDomainIndex,
   updateRangeProgress,
   STORAGE_KEYS

@@ -16,7 +16,15 @@ import {
 import { handleMailboxAdminApi } from './mailboxAdmin.js';
 
 function normalizeDomain(value) {
-  return String(value || '').trim().replace(/^@+/, '').toLowerCase();
+  return String(value || '').trim().replace(/^@+/, '').replace(/\.+$/, '').toLowerCase();
+}
+
+function isValidDomain(value) {
+  const domain = normalizeDomain(value);
+  if (!domain || domain.length > 253 || !domain.includes('.')) return false;
+  return domain
+    .split('.')
+    .every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
 }
 
 function getDomainList(mailDomains, fallback = 'temp.example.com') {
@@ -28,8 +36,8 @@ function chooseDomain(domains, explicitDomain, domainIndex) {
   const normalizedDomains = getDomainList(domains);
   const requestedDomain = normalizeDomain(explicitDomain);
   if (requestedDomain) {
-    if (!normalizedDomains.includes(requestedDomain)) {
-      throw new Error(`域名不允许: ${requestedDomain}`);
+    if (!isValidDomain(requestedDomain)) {
+      throw new Error(`域名格式不正确: ${requestedDomain}`);
     }
     return requestedDomain;
   }

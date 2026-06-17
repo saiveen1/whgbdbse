@@ -214,7 +214,18 @@ initCompose(els, api, showToast);
 (async () => {
   const s = await validateSession();
   if (!s) { clearCurrentMailbox(); stopAutoRefresh(); location.replace('/html/login.html'); return; }
-  if (s.role === 'guest') { initGuestMode(); if (domainSelect) { domainSelect.innerHTML = '<option value="0">example.com</option>'; domainSelect.disabled = true; } populateDomains(['example.com'], domainSelect); }
+  if (s.role === 'guest') {
+    initGuestMode();
+    if (domainSelect) {
+      domainSelect.innerHTML = '<option value="0">example.com</option>';
+      domainSelect.disabled = true;
+    }
+    populateDomains(['example.com'], domainSelect);
+    ['domain-base-select', 'domain-prefix-select', 'domain-custom-input'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+  }
   else await loadDomains(domainSelect, api);
   try { const qr = await api('/api/user/quota'); const q = await qr.json(); const el = document.getElementById('quota'); if (el && q) { el.textContent = isAdmin() ? `${q.total || 0} 邮箱` : `${q.used || 0} / ${q.limit || 0}`; }} catch(_) {}
   await loadMailboxes();

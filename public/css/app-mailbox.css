@@ -538,6 +538,27 @@
   width: 100%;
 }
 
+.domain-picker{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(96px, .72fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.domain-picker .config-select,
+.domain-picker .domain-custom-input{
+  min-width: 0;
+}
+
+.domain-custom-input{
+  grid-column: 1 / -1;
+  height: 44px;
+}
+
+.domain-hidden-select{
+  display: none;
+}
+
 /* 访客模式禁用下拉时的样式 */
 select:disabled{
   opacity: .7;

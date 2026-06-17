@@ -73,12 +73,12 @@ test('GET /api/generate honors explicit root domain when it is allowed', async (
   assert.match(body.email, /^[a-z0-9]{6}@imatech\.lol$/);
 });
 
-test('GET /api/generate rejects explicit unknown domain instead of falling back', async () => {
-  const response = await callGenerate('domain=not-allowed.example&domainIndex=0');
-  const text = await response.text();
+test('GET /api/generate honors explicit custom suffix even when it is not in configured domains', async () => {
+  const response = await callGenerate('length=6&domain=test.aibus.us.ci&domainIndex=0');
+  const body = await response.json();
 
-  assert.equal(response.status, 400);
-  assert.match(text, /域名/);
+  assert.equal(response.status, 200);
+  assert.match(body.email, /^[a-z0-9]{6}@test\.aibus\.us\.ci$/);
 });
 
 test('POST /api/create honors explicit root domain when it is allowed', async () => {
@@ -89,8 +89,16 @@ test('POST /api/create honors explicit root domain when it is allowed', async ()
   assert.equal(body.email, 'manual@imatech.lol');
 });
 
-test('POST /api/create rejects explicit unknown domain instead of falling back', async () => {
-  const response = await callCreate({ local: 'manual', domain: 'not-allowed.example', domainIndex: 0 });
+test('POST /api/create honors explicit custom suffix even when it is not in configured domains', async () => {
+  const response = await callCreate({ local: 'manual', domain: 'test.aibus.us.ci', domainIndex: 0 });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.email, 'manual@test.aibus.us.ci');
+});
+
+test('POST /api/create rejects malformed explicit suffix', async () => {
+  const response = await callCreate({ local: 'manual', domain: 'bad_domain', domainIndex: 0 });
   const text = await response.text();
 
   assert.equal(response.status, 400);

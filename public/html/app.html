@@ -194,7 +194,12 @@
                   </span>
                   <span>邮箱后缀</span>
                 </label>
-                <select id="domain-select" class="select config-select" aria-label="选择邮箱后缀域名"></select>
+                <div class="domain-picker">
+                  <select id="domain-base-select" class="select config-select" aria-label="选择邮箱母域"></select>
+                  <select id="domain-prefix-select" class="select config-select" aria-label="选择邮箱子前缀"></select>
+                  <input id="domain-custom-input" class="input domain-custom-input" type="text" placeholder="完整后缀，如 test.aibus.us.ci" aria-label="指定完整邮箱后缀" />
+                  <select id="domain-select" class="select config-select domain-hidden-select" aria-label="选择邮箱后缀域名"></select>
+                </div>
               </div>
               <div class="config-item">
                 <label class="config-label" for="len-range">
